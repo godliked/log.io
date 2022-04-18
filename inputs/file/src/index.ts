@@ -12,6 +12,7 @@ const homedirConfigPathExists = fs.existsSync(homedirConfigPath)
 const ROOT_PATH = process.env.LOGIO_FILE_INPUT_ROOT_PATH
 const CONFIG_PATH = process.env.LOGIO_FILE_INPUT_CONFIG_PATH
   || (homedirConfigPathExists && homedirConfigPath)
+  || path.resolve(__dirname, '../config.json')
 
 // Abort if no configuration file is found
 if (!CONFIG_PATH) {

@@ -35,4 +35,5 @@ export type InputConfig = {
     port: number,
   },
   inputs: Array<FileInputConfig>,
+  initialRowsCount: number,
 }

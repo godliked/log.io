@@ -25,6 +25,7 @@ async function sendNewMessages(
   filePath: string,
   newSize: number,
   oldSize: number,
+  socketID = ''
 ): Promise<void> {
   let fd = fds[filePath]
   if (!fd) {
@@ -34,9 +35,13 @@ async function sendNewMessages(
   const offset = Math.max(newSize - oldSize, 0)
   const readBuffer = Buffer.alloc(offset)
   await readAsync(fd, readBuffer, 0, offset, oldSize)
-  const messages = readBuffer.toString().split('\r\n').filter((msg) => !!msg.trim())
+  const messages = readBuffer.toString().split(/\r\n|\n/).filter((msg) => !!msg.trim())
   messages.forEach((message) => {
-    client.write(`+msg|${streamName}|${sourceName}|${message}\0`)
+    if (socketID) {
+      client.write(`+msg|${streamName}|${sourceName}|${message}|${socketID}\0`)
+    } else {
+      client.write(`+msg|${streamName}|${sourceName}|${message}\0`)
+    }
   })
 }
 
@@ -114,6 +119,26 @@ async function main(config: InputConfig): Promise<void> {
     console.log(`Connected to server: ${serverStr}`)
     await Promise.all(inputs.map(async (input) => {
       sendInput(client, input)
+    }))
+  })
+  // Listen incoming messages
+  client.on('data', async (data: Buffer) => {
+    Promise.all(inputs.map(async (input) => {
+      const bytesToSubtract = 83 * (config.initialRowsCount || 40)
+      const newSize = (await statAsync(input.config.path)).size
+      const oldSize = bytesToSubtract <= newSize
+        ? newSize - bytesToSubtract
+        : 0
+
+      sendNewMessages(
+        client,
+        input.stream,
+        input.source,
+        input.config.path,
+        newSize,
+        oldSize,
+        data.toString(),
+      )
     }))
   })
   // Reconnect to server if an error occurs while sending a message

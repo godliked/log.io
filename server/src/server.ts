@@ -20,18 +20,18 @@ async function handleNewMessage(
   io: SocketIO.Server,
   msgParts: Array<string>,
 ): Promise<void> {
-  const [mtype, stream, source] = msgParts.slice(0, 3)
-  const msg = msgParts.slice(3).join('|')
+  const [mtype, stream, source, msg, socketID] = msgParts.slice(0, 5)
+  // const msg = msgParts.slice(3).join('|')
   const inputName = inputs.add(stream, source)
   // Broadcast message to input channel
-  io.to(inputName).emit(mtype, {
+  io.to(socketID || inputName).emit(mtype, {
     inputName,
     msg,
     stream,
     source,
   })
   // Broadcast ping to all browsers
-  io.emit('+ping', { inputName, stream, source })
+  !socketID && io.emit('+ping', { inputName, stream, source })
   if (config.debug) {
     // eslint-disable-next-line no-console
     console.log(msgParts.join('|'))
@@ -129,15 +129,19 @@ See README for more examples.
   }
   server.use('/', express.static(UI_BUILD_PATH))
 
+  const tcpSockets: net.Socket[] = []
   // Create TCP message server
   const messageServer = net.createServer(async (socket: net.Socket) => {
+    tcpSockets.push(socket)
+
     socket.on('data', async (data: Buffer) => {
       await broadcastMessage(config, inputs, io, data)
     })
   })
 
   // When a new browser connects, register stream activation events
-  io.on('connection', async (socket: SocketIO.Socket) => {
+  io.on('connection', async (socket: socketio.Socket) => {
+
     // Send existing inputs to browser
     inputs.getInputs().forEach((input) => {
       socket.emit('+input', input)
@@ -148,6 +152,10 @@ See README for more examples.
     })
     socket.on('-activate', (inputName) => {
       socket.leave(inputName)
+    })
+    
+    tcpSockets.forEach(n => {
+      n.write(socket.id)
     })
   })
 
