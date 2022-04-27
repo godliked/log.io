@@ -155,7 +155,7 @@ See README for more examples.
     })
     
     tcpSockets.forEach(n => {
-      n.write(socket.id)
+      if (!n.destroyed) n.write(socket.id)
     })
   })
 

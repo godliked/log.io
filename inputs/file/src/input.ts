@@ -37,6 +37,8 @@ async function sendNewMessages(
   await readAsync(fd, readBuffer, 0, offset, oldSize)
   const messages = readBuffer.toString().split(/\r\n|\n/).filter((msg) => !!msg.trim())
   messages.forEach((message) => {
+    if (client.destroyed) return
+
     if (socketID) {
       client.write(`+msg|${streamName}|${sourceName}|${message}|${socketID}\0`)
     } else {
@@ -52,6 +54,8 @@ async function sendInput(
   client: Socket,
   input: FileInputConfig,
 ): Promise<void> {
+  if (client.destroyed) return
+
   client.write(`+input|${input.stream}|${input.source}\0`)
 }
 
